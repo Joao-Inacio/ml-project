@@ -1,0 +1,17 @@
+# Python
+ml_classifier.egg-info
+__pycache__/
+
+# Data
+data/**/*.csv
+
+# artifacts
+artifacts/*.joblib
+
+# models
+models/*.keras
+
+# metrics
+metrics/*.json
+Logs/*.Log
+
