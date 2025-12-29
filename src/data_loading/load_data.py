@@ -1,4 +1,5 @@
 import logging
+import time
 
 import numpy as np
 import pandas as pd
@@ -15,19 +16,22 @@ def fetch_data() -> pd.DataFrame:
     """
     logger.info("Fetching data...")
     dataset = load_breast_cancer()
-    
+
     # Features columns
     data = pd.DataFrame(data=dataset.data, columns=dataset.feature_names)
-    
+
     # Introduce random NaN values
     np.random.seed(42)
     for col in data.columns:
         mask = np.random.random(len(data)) < 0.05  # 5% chance of NaN
         data.loc[mask, col] = np.nan
-    
+
     # Target column
     data["target"] = dataset.target
-    
+
+    # Shuffle data to simulate changed data
+    data = data.sample(frac=1, random_state=int(time.time())).reset_index(drop=True)
+
     return data
 
 
