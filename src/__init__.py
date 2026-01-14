@@ -1,6 +1,10 @@
 import logging
 
+import dagshub
 from dotenv import load_dotenv
+
+dagshub.init(repo_owner="Joao-Inacio", repo_name="ml-project")
+
 
 load_dotenv()
 
