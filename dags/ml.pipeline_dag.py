@@ -2,6 +2,9 @@ from pathlib import Path
 
 import yaml
 from airflow import DAG
+
+# 1. IMPORT NOVO (Para ler o cofre do Airflow)
+from airflow.models import Variable
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
@@ -43,16 +46,20 @@ with DAG("ml_pipeline", default_args=default_args) as dag:
         task_id="register_artifacts", python_callable=register_artifacts_callable
     )
 
-    # Deploy model by building and running Docker container
+    # 2. ALTERAÇÃO AQUI: Injeção das variáveis no ambiente
     create_app_image = BashOperator(
         task_id="create_app_image",
         cwd=project_root,
-        # bash_command = "docker build -t ml-classifier ."
         bash_command="""
         docker build -t ${DOCKER_HUB_USERNAME}/ml-classifier .
         echo ${DOCKER_HUB_TOKEN} | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin
         docker push ${DOCKER_HUB_USERNAME}/ml-classifier
         """,
+        # O parâmetro 'env' pega a variável do banco do Airflow e entrega pro Bash
+        env={
+            "DOCKER_HUB_USERNAME": Variable.get("DOCKER_HUB_USERNAME"),
+            "DOCKER_HUB_TOKEN": Variable.get("DOCKER_HUB_TOKEN"),
+        },
     )
 
     # Set dependencies
