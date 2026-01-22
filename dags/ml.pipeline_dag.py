@@ -1,15 +1,12 @@
+import yaml
 from pathlib import Path
 
-import yaml
 from airflow import DAG
-
-# 1. IMPORT NOVO (Para ler o cofre do Airflow)
-from airflow.models import Variable
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
-project_root = Path(__file__).resolve().parents[1]
 
+project_root = Path(__file__).resolve().parents[1]
 
 def get_dvc_stages():
     dvc_yaml_path = project_root / "dvc.yaml"
@@ -17,19 +14,19 @@ def get_dvc_stages():
         dvc_config = yaml.safe_load(f)
     return list(dvc_config["stages"].keys())
 
-
 def register_artifacts_callable():
     from src.register_artifacts import main
-
     main()
-
 
 default_args = {
     "owner": "airflow",
     "retries": 1,
 }
 
-with DAG("ml_pipeline", default_args=default_args) as dag:
+with DAG(
+    "ml_pipeline",
+    default_args=default_args
+) as dag:
     # DVC Pipeline Stages
     dvc_stages = get_dvc_stages()
 
@@ -37,29 +34,28 @@ with DAG("ml_pipeline", default_args=default_args) as dag:
     dvc_tasks = []
     for stage in dvc_stages:
         task = BashOperator(
-            task_id=f"dvc_{stage}", cwd=project_root, bash_command=f"dvc repro {stage}"
+            task_id=f"dvc_{stage}",
+            cwd=project_root,
+            bash_command=f"dvc repro {stage}"
         )
         dvc_tasks.append(task)
 
     # Register artifacts in MLflow
     register_artifacts = PythonOperator(
-        task_id="register_artifacts", python_callable=register_artifacts_callable
+        task_id="register_artifacts",
+        python_callable=register_artifacts_callable
     )
 
-    # 2. ALTERAÇÃO AQUI: Injeção das variáveis no ambiente
+    # Deploy model by building and running Docker container
     create_app_image = BashOperator(
         task_id="create_app_image",
         cwd=project_root,
+        # bash_command = "docker build -t ml-classifier ."
         bash_command="""
         docker build -t ${DOCKER_HUB_USERNAME}/ml-classifier .
         echo ${DOCKER_HUB_TOKEN} | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin
         docker push ${DOCKER_HUB_USERNAME}/ml-classifier
-        """,
-        # O parâmetro 'env' pega a variável do banco do Airflow e entrega pro Bash
-        env={
-            "DOCKER_HUB_USERNAME": Variable.get("DOCKER_HUB_USERNAME"),
-            "DOCKER_HUB_TOKEN": Variable.get("DOCKER_HUB_TOKEN"),
-        },
+        """
     )
 
     # Set dependencies
